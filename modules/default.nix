@@ -8,12 +8,13 @@
 
   cfg = config.security.cisValidator;
 
-  profiles = {
-    "ubuntu-24.04-l1-server" = import ./profiles/ubuntu-24.04-l1-server.nix;
-  };
+  profiles = import ./profiles;
 
   selectedProfile = profiles.${cfg.profile};
-  evaluator = import ./evaluators {inherit config lib;};
+  evaluator = import ./evaluators {
+    inherit config lib;
+    profile = selectedProfile;
+  };
 
   ruleConfig = cisId: cfg.rules.${cisId} or {};
 
@@ -98,11 +99,12 @@
   report = {
     schemaVersion = 3;
     failureMode = cfg.failureMode;
-    profile = builtins.removeAttrs selectedProfile ["catalog"];
+    profile = builtins.removeAttrs selectedProfile ["catalog" "internal"];
     summary = {
       benchmarkRecommendations = builtins.length allRules;
       sourceAutomated = builtins.length (builtins.filter (rule: rule.assessment == "automated") allRules);
       sourceManual = builtins.length (builtins.filter (rule: rule.assessment == "manual") allRules);
+      sourceUnspecified = builtins.length (builtins.filter (rule: rule.assessment == "unspecified") allRules);
       enabledRules = builtins.length enabledRules;
       disabled = countStatus "disabled";
       staticallyAssessed = countStatus "pass" + countStatus "fail";
@@ -119,9 +121,9 @@ in {
     enable = mkEnableOption "static CIS-aligned validation of the evaluated NixOS configuration";
 
     profile = mkOption {
-      type = types.enum ["ubuntu-24.04-l1-server"];
+      type = types.enum (builtins.attrNames profiles);
       default = "ubuntu-24.04-l1-server";
-      description = "The NixOS-native benchmark mapping profile to evaluate.";
+      description = "The versioned NixOS-native benchmark mapping profile to evaluate.";
     };
 
     failureMode = mkOption {

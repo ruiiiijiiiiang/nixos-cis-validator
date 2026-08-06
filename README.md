@@ -5,11 +5,21 @@ evaluation against a CIS-aligned rule catalog. It produces a JSON build
 artifact and can optionally turn static violations into NixOS warnings or
 build-blocking assertions.
 
-The included profile is a NixOS-native mapping of the **CIS Ubuntu Linux 24.04
-LTS Benchmark v2.0.0, Level 1 Server**. Its catalog contains all 258
-recommendations in that profile: 246 automated and 12 manual. The mapping is
-derived work and does not claim CIS conformance or certification. See the
-[benchmark mapping policy](docs/benchmark-mapping.md) for the precise scope.
+The included profiles are NixOS-native mappings of six Level 1 Server
+benchmarks:
+
+| Profile identifier | Source benchmark | Recommendations |
+| --- | --- | ---: |
+| `ubuntu-24.04-l1-server` | CIS Ubuntu Linux 24.04 LTS v2.0.0 | 258 |
+| `debian-13-l1-server` | CIS Debian Linux 13 v1.0.0 | 262 |
+| `almalinux-10-l1-server` | CIS AlmaLinux OS 10 v1.0.0 | 248 |
+| `rhel-10-l1-server` | CIS Red Hat Enterprise Linux 10 v1.0.1 | 248 |
+| `rocky-linux-10-l1-server` | CIS Rocky Linux 10 v1.0.0 | 248 |
+| `amazon-linux-2-l1-server` | CIS Amazon Linux 2 v4.0.0 | 225 |
+
+The mappings are derived work and do not claim CIS conformance or
+certification. See the [benchmark mapping policy](docs/benchmark-mapping.md)
+for the precise scope.
 
 ## Add the module to a flake
 
@@ -44,7 +54,9 @@ derived work and does not claim CIS conformance or certification. See the
 
 Importing the module does not enable validation. Set
 `security.cisValidator.enable = true` on each host to check. The profile option
-currently defaults to and accepts `"ubuntu-24.04-l1-server"`.
+defaults to `"ubuntu-24.04-l1-server"`; select any identifier from the table
+above to use another baseline. Identifiers include the distribution version so
+updating a benchmark cannot silently change the selected rule set.
 
 ## Failure modes
 
@@ -87,11 +99,11 @@ nix build \
 jq . result
 ```
 
-Each of the 258 entries has a status of `pass`, `fail`, `not-assessed`,
-`not-applicable`, or `disabled`. It also records the source recommendation,
-source assessment type, NixOS applicability, validation phase, evidence, and
-NixOS-specific remediation. A summary reports catalog, static, runtime,
-not-applicable, and unsupported counts.
+Every recommendation in the selected profile has a status of `pass`, `fail`,
+`not-assessed`, `not-applicable`, or `disabled`. It also records the source
+recommendation, source assessment type, NixOS applicability, validation phase,
+evidence, and NixOS-specific remediation. A summary reports catalog, static,
+runtime, not-applicable, and unsupported counts.
 
 Abbreviated report shape:
 
@@ -113,11 +125,17 @@ Abbreviated report shape:
   "summary": {
     "benchmarkRecommendations": 258,
     "sourceAutomated": 246,
-    "sourceManual": 12
+    "sourceManual": 12,
+    "sourceUnspecified": 0
   },
   "rules": []
 }
 ```
+
+Amazon Linux 2 v4.0.0 does not display Automated or Manual assessment labels
+on its recommendation pages. Its 225 entries therefore report
+`assessment = "unspecified"` and `summary.sourceUnspecified = 225`; the
+validator does not invent source classifications.
 
 ## Development
 

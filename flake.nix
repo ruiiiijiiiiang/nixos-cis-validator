@@ -70,10 +70,19 @@
           rules."5.1.20".enable = true;
         };
 
-        catalog = mkSystem {
-          enable = true;
-          failureMode = "report";
-        };
+        mkCatalogSystem = profile:
+          mkSystem {
+            enable = true;
+            inherit profile;
+            failureMode = "report";
+          };
+
+        ubuntuCatalog = mkCatalogSystem "ubuntu-24.04-l1-server";
+        debianCatalog = mkCatalogSystem "debian-13-l1-server";
+        almaLinuxCatalog = mkCatalogSystem "almalinux-10-l1-server";
+        rhelCatalog = mkCatalogSystem "rhel-10-l1-server";
+        rockyLinuxCatalog = mkCatalogSystem "rocky-linux-10-l1-server";
+        amazonLinuxCatalog = mkCatalogSystem "amazon-linux-2-l1-server";
 
         blockingEvaluation = builtins.tryEval blocking.config.system.build.toplevel.drvPath;
       in {
@@ -112,17 +121,47 @@
         catalog =
           pkgs.runCommand "cis-validator-catalog-check" {
             nativeBuildInputs = [pkgs.jq];
-            report = catalog.config.system.build.cisValidationReport;
+            ubuntuReport = ubuntuCatalog.config.system.build.cisValidationReport;
+            debianReport = debianCatalog.config.system.build.cisValidationReport;
+            almaLinuxReport = almaLinuxCatalog.config.system.build.cisValidationReport;
+            rhelReport = rhelCatalog.config.system.build.cisValidationReport;
+            rockyLinuxReport = rockyLinuxCatalog.config.system.build.cisValidationReport;
+            amazonLinuxReport = amazonLinuxCatalog.config.system.build.cisValidationReport;
           } ''
-            jq -e '
-              .summary.benchmarkRecommendations == 258 and
-              .summary.sourceAutomated == 246 and
-              .summary.sourceManual == 12 and
-              (.rules | length) == 258 and
-              ([.rules[].source.recommendation] | unique | length) == 258 and
-              (.summary.staticallyAssessed + .summary.runtimeRequired +
-               .summary.notApplicable + .summary.unsupported + .summary.disabled) == 258
-            ' "$report" >/dev/null
+            check_report() {
+              report="$1"
+              profile="$2"
+              recommendations="$3"
+              automated="$4"
+              manual="$5"
+              unspecified="$6"
+
+              jq -e \
+                --arg profile "$profile" \
+                --argjson recommendations "$recommendations" \
+                --argjson automated "$automated" \
+                --argjson manual "$manual" \
+                --argjson unspecified "$unspecified" '
+                  .profile.id == $profile and
+                  .profile.internal == null and
+                  .summary.benchmarkRecommendations == $recommendations and
+                  .summary.sourceAutomated == $automated and
+                  .summary.sourceManual == $manual and
+                  .summary.sourceUnspecified == $unspecified and
+                  .summary.staticallyAssessed > 0 and
+                  (.rules | length) == $recommendations and
+                  ([.rules[].source.recommendation] | unique | length) == $recommendations and
+                  (.summary.staticallyAssessed + .summary.runtimeRequired +
+                   .summary.notApplicable + .summary.unsupported + .summary.disabled) == $recommendations
+                ' "$report" >/dev/null
+            }
+
+            check_report "$ubuntuReport" ubuntu-24.04-l1-server 258 246 12 0
+            check_report "$debianReport" debian-13-l1-server 262 249 13 0
+            check_report "$almaLinuxReport" almalinux-10-l1-server 248 231 17 0
+            check_report "$rhelReport" rhel-10-l1-server 248 231 17 0
+            check_report "$rockyLinuxReport" rocky-linux-10-l1-server 248 231 17 0
+            check_report "$amazonLinuxReport" amazon-linux-2-l1-server 225 0 0 225
             touch "$out"
           '';
 

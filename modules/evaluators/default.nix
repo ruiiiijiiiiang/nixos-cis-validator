@@ -1,11 +1,12 @@
 {
   config,
   lib,
+  profile,
 }: let
   mergeMappings = lib.foldl' (acc: mappings: acc // mappings) {};
   helpers = import ./lib.nix {inherit config lib;};
-in {
-  mappings = mergeMappings [
+
+  baseMappings = mergeMappings [
     (import ./section-1.nix {inherit config helpers lib;})
     (import ./section-2.nix {inherit config helpers lib;})
     (import ./section-3.nix {inherit config helpers lib;})
@@ -14,10 +15,9 @@ in {
     (import ./section-6.nix {inherit config helpers lib;})
   ];
 
-  runtimePrefixes = ["7."];
-
-  notApplicable = {
+  baseNotApplicable = {
     "1.2.1.1" = "NixOS does not use APT source files or the APT Signed-By mechanism.";
+    "1.2.1.2" = "NixOS does not use APT weak-dependency configuration.";
     "1.2.1.3" = "NixOS does not use APT GPG key files.";
     "1.2.1.4" = "NixOS does not use /etc/apt/trusted.gpg.d.";
     "1.2.1.5" = "NixOS does not use /etc/apt/auth.conf.d.";
@@ -28,7 +28,7 @@ in {
     "1.5.7" = "Ubuntu apport automatic error reporting is not part of NixOS.";
   };
 
-  runtime = {
+  baseRuntime = {
     "1.2.2.1" = "Update and vulnerability status depends on the deployed flake inputs and running generation.";
     "1.4.1" = "Bootloader authentication cannot be inferred portably across supported NixOS bootloaders.";
     "1.4.2" = "Bootloader file ownership and modes require inspection of the built or deployed boot filesystem.";
@@ -53,7 +53,7 @@ in {
     "5.1.1" = "Effective OpenSSH configuration-file ownership and mode require build-artifact or runtime inspection.";
     "5.1.2" = "SSH private host-key ownership and modes require build-artifact or runtime inspection.";
     "5.1.3" = "SSH public host-key ownership and modes require build-artifact or runtime inspection.";
-    "5.3.1.2" = "Ubuntu libpam-modules package state does not map directly to a NixOS evaluation invariant.";
+    "5.3.1.2" = "The benchmark's PAM package state does not map directly to a NixOS evaluation invariant.";
     "5.3.1.3" = "The presence and version of pam_pwquality requires inspection of the generated PAM closure.";
     "5.3.1.4" = "The presence and version of cracklib requires inspection of the generated PAM closure.";
     "5.4.1.6" = "Existing users' last password-change dates are mutable runtime state.";
@@ -72,4 +72,48 @@ in {
     "6.3.1" = "AIDE presence must be validated in the built closure until a native NixOS AIDE module is available.";
     "6.3.2" = "Filesystem-integrity scheduling and successful execution require build-artifact and runtime validation.";
   };
+
+  ubuntuCatalog = import ../catalog/ubuntu-24.04-v2.0.0-l1-server.nix;
+  ubuntuIdByTitle = builtins.listToAttrs (map (entry: lib.nameValuePair entry.title entry.cisId) ubuntuCatalog);
+
+  inheritByTitle = results:
+    builtins.listToAttrs (
+      builtins.filter (item: item != null) (
+        map (
+          entry: let
+            ubuntuId = ubuntuIdByTitle.${entry.title} or null;
+          in
+            if ubuntuId != null && builtins.hasAttr ubuntuId results
+            then lib.nameValuePair entry.cisId results.${ubuntuId}
+            else null
+        )
+        profile.catalog
+      )
+    );
+
+  family = import ./families/${profile.internal.evaluatorFamily}.nix {inherit config helpers lib;};
+  isUbuntu = profile.id == "ubuntu-24.04-l1-server";
+in {
+  mappings =
+    (
+      if isUbuntu
+      then baseMappings
+      else inheritByTitle baseMappings
+    )
+    // family.mappings;
+  notApplicable =
+    (
+      if isUbuntu
+      then baseNotApplicable
+      else inheritByTitle baseNotApplicable
+    )
+    // family.notApplicable;
+  runtime =
+    (
+      if isUbuntu
+      then baseRuntime
+      else inheritByTitle baseRuntime
+    )
+    // family.runtime;
+  runtimePrefixes = ["7."];
 }

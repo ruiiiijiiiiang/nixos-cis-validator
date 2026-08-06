@@ -1,19 +1,39 @@
 # Benchmark mapping policy
 
-## Baseline
+## Baselines
 
-The profile uses the **CIS Ubuntu Linux 24.04 LTS Benchmark v2.0.0, Level 1
-Server**, published 2026-05-28, as its source template. Its identifier is
-`ubuntu-24.04-l1-server`.
+The module contains complete Level 1 Server inventories for these source
+benchmarks:
 
-The source inventory contains 258 recommendations: 246 marked Automated and 12
-marked Manual by the benchmark. The project records the source document SHA-256
-as `9486caebef04f5d3fbe534930ec4f88506ef6deb292d270ee578488cbc991736` so
-catalog provenance can be checked without redistributing the PDF.
+| Identifier | Benchmark version | Published | Automated | Manual | Unspecified | Total |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `ubuntu-24.04-l1-server` | Ubuntu Linux 24.04 LTS v2.0.0 | 2026-05-28 | 246 | 12 | 0 | 258 |
+| `debian-13-l1-server` | Debian Linux 13 v1.0.0 | 2025-12-16 | 249 | 13 | 0 | 262 |
+| `almalinux-10-l1-server` | AlmaLinux OS 10 v1.0.0 | 2025-09-30 | 231 | 17 | 0 | 248 |
+| `rhel-10-l1-server` | Red Hat Enterprise Linux 10 v1.0.1 | 2025-09-30 | 231 | 17 | 0 | 248 |
+| `rocky-linux-10-l1-server` | Rocky Linux 10 v1.0.0 | 2025-09-30 | 231 | 17 | 0 | 248 |
+| `amazon-linux-2-l1-server` | Amazon Linux 2 v4.0.0 | 2026-03-26 | 0 | 0 | 225 | 225 |
 
-This profile is a NixOS-native interpretation of security intent. It is not an
-Ubuntu implementation, CIS Build Kit, or evidence of CIS certification. The
-generated report records this distinction in `profile.alignment`.
+Each profile records the source document SHA-256 in its report metadata so
+catalog provenance can be checked without redistributing the PDFs.
+
+Amazon Linux 2 v4.0.0 omits Automated and Manual labels from its rendered
+recommendation pages. The catalog preserves those assessments as unspecified;
+it does not infer labels from older benchmark versions or audit prose.
+
+These profiles are NixOS-native interpretations of security intent. They are
+not implementations of the source distributions, CIS Build Kits, or evidence
+of CIS certification. The generated report records this distinction in
+`profile.alignment`.
+
+## Evaluator reuse
+
+Recommendation numbers are local to a benchmark and are never assumed to have
+the same meaning across profiles. Shared evaluators are inherited only when the
+reviewed recommendation title matches exactly. Profile-family overlays then
+handle controls whose NixOS adaptation differs, including APT and RPM package
+management, SELinux-to-AppArmor intent, firewalld-to-NixOS-firewall intent,
+time synchronization, and journal upload.
 
 ## Complete catalog and applicability
 
@@ -26,7 +46,7 @@ one applicability classification:
 | `native` | The intent maps directly to evaluated NixOS options. |
 | `adapted` | The intent applies, but NixOS implements it differently. |
 | `runtime` | Evaluation cannot prove the resulting runtime state. |
-| `not-applicable` | The recommendation is Ubuntu-specific or superseded by the NixOS architecture. |
+| `not-applicable` | The recommendation is distribution-specific or superseded by the NixOS architecture. |
 | `unsupported` | The recommendation applies, but no reliable NixOS validation exists yet. |
 
 `native` and `adapted` recommendations may produce a static pass or failure.
@@ -62,10 +82,11 @@ Conditional controls can return `not-applicable` for a particular evaluation.
 For example, chrony-specific checks are not applicable when chrony is not the
 selected time synchronization implementation.
 
-Ubuntu package-manager checks, mutable file ownership and mode checks, and
-commands that assume Ubuntu filesystem paths are not translated mechanically.
-They are classified as not applicable, deferred to build-artifact/runtime
-validation, or left unsupported until a reliable NixOS invariant exists.
+Distribution package-manager checks, mutable file ownership and mode checks,
+and commands that assume distribution-specific filesystem paths are not
+translated mechanically. They are classified as not applicable, deferred to
+build-artifact/runtime validation, or left unsupported until a reliable NixOS
+invariant exists.
 
 ## Source usage
 
