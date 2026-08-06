@@ -8,14 +8,14 @@ build-blocking assertions.
 The included profiles are NixOS-native mappings of six Level 1 Server
 benchmarks:
 
-| Profile identifier | Source benchmark | Recommendations |
-| --- | --- | ---: |
-| `ubuntu-24.04-l1-server` | CIS Ubuntu Linux 24.04 LTS v2.0.0 | 258 |
-| `debian-13-l1-server` | CIS Debian Linux 13 v1.0.0 | 262 |
-| `almalinux-10-l1-server` | CIS AlmaLinux OS 10 v1.0.0 | 248 |
-| `rhel-10-l1-server` | CIS Red Hat Enterprise Linux 10 v1.0.1 | 248 |
-| `rocky-linux-10-l1-server` | CIS Rocky Linux 10 v1.0.0 | 248 |
-| `amazon-linux-2-l1-server` | CIS Amazon Linux 2 v4.0.0 | 225 |
+| Profile identifier         | Source benchmark                       | Recommendations |
+| -------------------------- | -------------------------------------- | --------------: |
+| `ubuntu-24.04-l1-server`   | CIS Ubuntu Linux 24.04 LTS v2.0.0      |             258 |
+| `debian-13-l1-server`      | CIS Debian Linux 13 v1.0.0             |             262 |
+| `almalinux-10-l1-server`   | CIS AlmaLinux OS 10 v1.0.0             |             248 |
+| `rhel-10-l1-server`        | CIS Red Hat Enterprise Linux 10 v1.0.1 |             248 |
+| `rocky-linux-10-l1-server` | CIS Rocky Linux 10 v1.0.0              |             248 |
+| `amazon-linux-2-l1-server` | CIS Amazon Linux 2 v4.0.0              |             225 |
 
 The mappings are derived work and do not claim CIS conformance or
 certification. See the [benchmark mapping policy](docs/benchmark-mapping.md)
@@ -145,3 +145,11 @@ Run formatting and all evaluation/report checks with:
 nix fmt
 nix flake check
 ```
+
+## AI Usage Disclosure
+
+This project was designed and scoped manually. Development was heavily assisted by Large Language Models (LLMs), and all generated code, configurations, and documentation have been manually verified and tested.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
