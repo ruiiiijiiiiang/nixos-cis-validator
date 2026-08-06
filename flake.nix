@@ -70,6 +70,33 @@
           rules."5.1.20".enable = true;
         };
 
+        acceptedException = mkSystem {
+          enable = true;
+          failureMode = "error";
+          defaultRuleEnable = false;
+          rules."5.1.20" = {
+            enable = true;
+            failureMode = "report";
+            justification = "Accepted by site policy for this test host.";
+          };
+        };
+
+        selectiveBlocking = mkSystem {
+          enable = true;
+          failureMode = "report";
+          defaultRuleEnable = false;
+          rules."5.1.20" = {
+            enable = true;
+            failureMode = "error";
+          };
+        };
+
+        invalidRule = mkSystem {
+          enable = true;
+          failureMode = "report";
+          rules."999.999".failureMode = "error";
+        };
+
         mkCatalogSystem = profile:
           mkSystem {
             enable = true;
@@ -85,6 +112,9 @@
         amazonLinuxCatalog = mkCatalogSystem "amazon-linux-2-l1-server";
 
         blockingEvaluation = builtins.tryEval blocking.config.system.build.toplevel.drvPath;
+        acceptedExceptionEvaluation = builtins.tryEval acceptedException.config.system.build.toplevel.drvPath;
+        selectiveBlockingEvaluation = builtins.tryEval selectiveBlocking.config.system.build.toplevel.drvPath;
+        invalidRuleEvaluation = builtins.tryEval invalidRule.config.system.build.toplevel.drvPath;
       in {
         compliant =
           pkgs.runCommand "cis-validator-compliant-check" {
@@ -92,7 +122,7 @@
             report = compliant.config.system.build.cisValidationReport;
           } ''
             jq -e '
-              .schemaVersion == 3 and
+              .schemaVersion == 1 and
               .profile.id == "ubuntu-24.04-l1-server" and
               .profile.alignment.certified == false and
               .summary.enabledRules == 1 and
@@ -112,7 +142,11 @@
               .profile.source.version == "2.0.0" and
               .profile.source.recommendations == 258 and
               .summary.violations == 1 and
+              .summary.warningViolations == 0 and
+              .summary.blockingViolations == 0 and
               (.rules | map(select(.source.recommendation == "5.1.20"))[0].status) == "fail" and
+              (.rules | map(select(.source.recommendation == "5.1.20"))[0].enforcement.inherited) == true and
+              (.rules | map(select(.source.recommendation == "5.1.20"))[0].enforcement.effective) == "report" and
               (.rules | map(select(.source.recommendation == "5.1.20"))[0].evidence.actual) == "prohibit-password"
             ' "$report" >/dev/null
             touch "$out"
@@ -172,6 +206,32 @@
 
         error = assert !blockingEvaluation.success;
           pkgs.runCommand "cis-validator-error-check" {} ''
+            touch "$out"
+          '';
+
+        accepted-exception = assert acceptedExceptionEvaluation.success;
+          pkgs.runCommand "cis-validator-accepted-exception-check" {
+            nativeBuildInputs = [pkgs.jq];
+            report = acceptedException.config.system.build.cisValidationReport;
+          } ''
+            jq -e '
+              .failureMode == "error" and
+              .summary.violations == 1 and
+              .summary.blockingViolations == 0 and
+              (.rules | map(select(.source.recommendation == "5.1.20"))[0].enforcement.configured) == "report" and
+              (.rules | map(select(.source.recommendation == "5.1.20"))[0].enforcement.effective) == "report" and
+              (.rules | map(select(.source.recommendation == "5.1.20"))[0].enforcement.justification) == "Accepted by site policy for this test host."
+            ' "$report" >/dev/null
+            touch "$out"
+          '';
+
+        selective-error = assert !selectiveBlockingEvaluation.success;
+          pkgs.runCommand "cis-validator-selective-error-check" {} ''
+            touch "$out"
+          '';
+
+        invalid-rule = assert !invalidRuleEvaluation.success;
+          pkgs.runCommand "cis-validator-invalid-rule-check" {} ''
             touch "$out"
           '';
       }

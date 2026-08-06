@@ -57,7 +57,13 @@
 
   mkRule = entry: let
     result = classify entry;
-    enabled = (ruleConfig entry.cisId).enable or cfg.defaultRuleEnable;
+    configuredRule = ruleConfig entry.cisId;
+    enabled = configuredRule.enable or cfg.defaultRuleEnable;
+    configuredFailureMode = configuredRule.failureMode or "inherit";
+    effectiveFailureMode =
+      if configuredFailureMode == "inherit"
+      then cfg.failureMode
+      else configuredFailureMode;
     status =
       if !enabled
       then "disabled"
@@ -79,6 +85,12 @@
     reason = result.reason or null;
     evidence = result.evidence or {};
     passed = result.passed or false;
+    enforcement = {
+      configured = configuredFailureMode;
+      effective = effectiveFailureMode;
+      inherited = configuredFailureMode == "inherit";
+      justification = configuredRule.justification or null;
+    };
     source = {
       recommendation = entry.cisId;
       mappingStatus =
@@ -91,13 +103,17 @@
   allRules = map mkRule selectedProfile.catalog;
   enabledRules = builtins.filter (rule: rule.enabled) allRules;
   violations = builtins.filter (rule: rule.status == "fail") enabledRules;
+  warningViolations = builtins.filter (rule: rule.enforcement.effective == "warn") violations;
+  blockingViolations = builtins.filter (rule: rule.enforcement.effective == "error") violations;
+  catalogRuleIds = map (entry: entry.cisId) selectedProfile.catalog;
+  unknownRuleIds = builtins.filter (cisId: !builtins.elem cisId catalogRuleIds) (builtins.attrNames cfg.rules);
   countStatus = status: builtins.length (builtins.filter (rule: rule.status == status) allRules);
   publicRules = map (rule: builtins.removeAttrs rule ["passed"]) allRules;
 
   formatViolation = rule: "[nixos-cis-validator] CIS ${rule.source.recommendation}: ${rule.title}. ${rule.remediation}";
 
   report = {
-    schemaVersion = 3;
+    schemaVersion = 1;
     failureMode = cfg.failureMode;
     profile = builtins.removeAttrs selectedProfile ["catalog" "internal"];
     summary = {
@@ -110,6 +126,8 @@
       staticallyAssessed = countStatus "pass" + countStatus "fail";
       passed = countStatus "pass";
       violations = countStatus "fail";
+      warningViolations = builtins.length warningViolations;
+      blockingViolations = builtins.length blockingViolations;
       runtimeRequired = builtins.length (builtins.filter (rule: rule.enabled && rule.applicability == "runtime") allRules);
       notApplicable = countStatus "not-applicable";
       unsupported = builtins.length (builtins.filter (rule: rule.enabled && rule.applicability == "unsupported") allRules);
@@ -151,30 +169,55 @@ in {
       default = {};
       description = "Per-recommendation configuration keyed by CIS recommendation number.";
       type = types.attrsOf (types.submodule {
-        options.enable = mkOption {
-          type = types.bool;
-          default = true;
-          description = "Whether to include this recommendation in validation.";
+        options = {
+          enable = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Whether to include this recommendation in validation.";
+          };
+
+          failureMode = mkOption {
+            type = types.enum [
+              "inherit"
+              "report"
+              "warn"
+              "error"
+            ];
+            default = "inherit";
+            description = "How this recommendation affects evaluation, or inherit to use the global failure mode.";
+          };
+
+          justification = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = "Optional site-policy justification recorded with this recommendation.";
+          };
         };
       });
       example = {
-        "1.1.1.1".enable = false;
+        "2.3.2.2" = {
+          failureMode = "report";
+          justification = "This host uses chrony instead of systemd-timesyncd.";
+        };
       };
     };
   };
 
   config = mkIf cfg.enable {
-    warnings =
-      lib.optionals (cfg.failureMode == "warn")
-      (map formatViolation violations);
+    warnings = map formatViolation warningViolations;
 
     assertions =
-      lib.optionals (cfg.failureMode == "error")
-      (map (rule: {
+      [
+        {
+          assertion = unknownRuleIds == [];
+          message = "[nixos-cis-validator] Unknown CIS recommendation IDs for profile ${cfg.profile}: ${lib.concatStringsSep ", " unknownRuleIds}";
+        }
+      ]
+      ++ (map (rule: {
           assertion = rule.passed;
           message = formatViolation rule;
         })
-        violations);
+        blockingViolations);
 
     system.build.cisValidationReport =
       pkgs.writeText

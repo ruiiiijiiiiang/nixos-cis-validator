@@ -5,6 +5,15 @@ evaluation against a CIS-aligned rule catalog. It produces a JSON build
 artifact and can optionally turn static violations into NixOS warnings or
 build-blocking assertions.
 
+## Why?
+
+NixOS makes system configuration declarative, but it does not automatically
+show how that configuration aligns with common security baselines. This module
+brings CIS-aligned checks into evaluation so issues can be reported, warned
+about, or selectively blocked before deployment. Its goal is to provide early,
+auditable feedback while keeping policy decisions under the user's control—not
+to claim CIS certification.
+
 The included profiles are NixOS-native mappings of six Level 1 Server
 benchmarks:
 
@@ -72,6 +81,25 @@ Only recommendations with a deterministic static evaluator can violate.
 Runtime-required, not-applicable, unsupported, and disabled recommendations
 are reported but never warn or block a build.
 
+Each rule can override the global mode with `"report"`, `"warn"`, or
+`"error"`. The default `"inherit"` uses the global mode. For example, retain
+an accepted exception in the report while other violations remain blocking:
+
+```nix
+security.cisValidator = {
+  failureMode = "error";
+
+  rules."2.3.2.2" = {
+    failureMode = "report";
+    justification = "This host uses chrony instead of systemd-timesyncd.";
+  };
+};
+```
+
+The inverse policy is also supported: use global report mode and set selected
+serious recommendations to `failureMode = "error"`. Configured rule IDs are
+validated against the selected profile to prevent silent typos.
+
 All catalog recommendations are enabled by default. They can be disabled by
 CIS recommendation number:
 
@@ -109,7 +137,7 @@ Abbreviated report shape:
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 1,
   "failureMode": "warn",
   "profile": {
     "id": "ubuntu-24.04-l1-server",
@@ -124,6 +152,8 @@ Abbreviated report shape:
   },
   "summary": {
     "benchmarkRecommendations": 258,
+    "warningViolations": 0,
+    "blockingViolations": 0,
     "sourceAutomated": 246,
     "sourceManual": 12,
     "sourceUnspecified": 0
