@@ -3,9 +3,14 @@
   lib,
   helpers,
 }: let
-  inherit (helpers) mkStatic opensshSetting optionEquals optionSatisfies valueAt;
+  inherit (helpers) mkStatic notApplicable opensshSetting optionEquals optionSatisfies valueAt;
 
+  sshEnabled = config.services.openssh.enable;
   ssh = config.services.openssh.settings;
+  sshRule = result:
+    if sshEnabled
+    then result
+    else notApplicable "The NixOS OpenSSH server is disabled.";
   nonEmpty = value: value != null && value != [] && value != "";
   positiveInt = value: builtins.isInt value && value > 0;
   intAtMost = maximum: value: builtins.isInt value && value > 0 && value <= maximum;
@@ -38,7 +43,7 @@
   uidZeroUsers = lib.attrNames (lib.filterAttrs (_: user: (user.uid or null) == 0) config.users.users);
   gidZeroGroups = lib.attrNames (lib.filterAttrs (_: group: (group.gid or null) == 0) config.users.groups);
 in {
-  "5.1.4" = mkStatic {
+  "5.1.4" = sshRule (mkStatic {
     actual = {
       inherit (ssh) AllowUsers AllowGroups DenyUsers DenyGroups;
     };
@@ -48,20 +53,20 @@ in {
     applicability = "adapted";
     description = "The SSH service must declaratively restrict access using at least one user or group allow/deny list.";
     remediation = "Configure one of services.openssh.settings.AllowUsers, AllowGroups, DenyUsers, or DenyGroups according to site policy.";
-  };
-  "5.1.5" = optionSatisfies {
+  });
+  "5.1.5" = sshRule (optionSatisfies {
     path = ["services" "openssh" "settings" "Banner"];
     expected = "a configured banner path";
     predicate = nonEmpty;
     remediation = "Set services.openssh.settings.Banner to the declaratively managed warning-banner path.";
-  };
-  "5.1.6" = approvedAlgorithms "Ciphers" [
+  });
+  "5.1.6" = sshRule (approvedAlgorithms "Ciphers" [
     "3des-cbc"
     "aes128-cbc"
     "aes192-cbc"
     "aes256-cbc"
-  ];
-  "5.1.7" = mkStatic {
+  ]);
+  "5.1.7" = sshRule (mkStatic {
     actual = {
       ClientAliveInterval = ssh.ClientAliveInterval or null;
       ClientAliveCountMax = ssh.ClientAliveCountMax or null;
@@ -71,64 +76,64 @@ in {
     passed = positiveInt (ssh.ClientAliveInterval or null) && positiveInt (ssh.ClientAliveCountMax or null);
     description = "Both SSH client-alive controls must be explicitly configured to positive values.";
     remediation = "Set services.openssh.settings.ClientAliveInterval and ClientAliveCountMax to positive site-approved values.";
-  };
-  "5.1.10" = opensshSetting "HostbasedAuthentication" false;
-  "5.1.11" = opensshSetting "IgnoreRhosts" true;
-  "5.1.12" = approvedAlgorithms "KexAlgorithms" [
+  });
+  "5.1.10" = sshRule (opensshSetting "HostbasedAuthentication" false);
+  "5.1.11" = sshRule (opensshSetting "IgnoreRhosts" true);
+  "5.1.12" = sshRule (approvedAlgorithms "KexAlgorithms" [
     "diffie-hellman-group1-sha1"
     "diffie-hellman-group14-sha1"
     "diffie-hellman-group-exchange-sha1"
-  ];
-  "5.1.13" = optionSatisfies {
+  ]);
+  "5.1.13" = sshRule (optionSatisfies {
     path = ["services" "openssh" "settings" "LoginGraceTime"];
     expected = "an integer from 1 through 60 seconds";
     predicate = intAtMost 60;
     remediation = "Set services.openssh.settings.LoginGraceTime to a value from 1 through 60.";
-  };
-  "5.1.14" = optionSatisfies {
+  });
+  "5.1.14" = sshRule (optionSatisfies {
     path = ["services" "openssh" "settings" "LogLevel"];
     expected = "INFO or VERBOSE";
     predicate = actual: builtins.elem actual ["INFO" "VERBOSE"];
     remediation = "Set services.openssh.settings.LogLevel to \"INFO\" or \"VERBOSE\".";
-  };
-  "5.1.15" = approvedAlgorithms "Macs" [
+  });
+  "5.1.15" = sshRule (approvedAlgorithms "Macs" [
     "hmac-md5"
     "hmac-md5-96"
     "hmac-sha1"
     "hmac-sha1-96"
     "umac-64@openssh.com"
     "umac-64-etm@openssh.com"
-  ];
-  "5.1.16" = optionSatisfies {
+  ]);
+  "5.1.16" = sshRule (optionSatisfies {
     path = ["services" "openssh" "settings" "MaxAuthTries"];
     expected = "an integer from 1 through 4";
     predicate = intAtMost 4;
     remediation = "Set services.openssh.settings.MaxAuthTries to 4 or less.";
-  };
-  "5.1.17" = optionSatisfies {
+  });
+  "5.1.17" = sshRule (optionSatisfies {
     path = ["services" "openssh" "settings" "MaxStartups"];
     expected = "10:30:60 or a site-approved stricter value";
     predicate = actual: actual == "10:30:60";
     remediation = "Set services.openssh.settings.MaxStartups = \"10:30:60\" or disable this rule when a reviewed stricter value is used.";
-  };
-  "5.1.18" = optionSatisfies {
+  });
+  "5.1.18" = sshRule (optionSatisfies {
     path = ["services" "openssh" "settings" "MaxSessions"];
     expected = "an integer from 1 through 10";
     predicate = intAtMost 10;
     remediation = "Set services.openssh.settings.MaxSessions to 10 or less.";
-  };
-  "5.1.19" = opensshSetting "PermitEmptyPasswords" false;
-  "5.1.20" = opensshSetting "PermitRootLogin" "no";
-  "5.1.21" = opensshSetting "PermitUserEnvironment" false;
-  "5.1.22" = opensshSetting "UsePAM" true;
-  "5.1.23" = optionSatisfies {
+  });
+  "5.1.19" = sshRule (opensshSetting "PermitEmptyPasswords" false);
+  "5.1.20" = sshRule (opensshSetting "PermitRootLogin" "no");
+  "5.1.21" = sshRule (opensshSetting "PermitUserEnvironment" false);
+  "5.1.22" = sshRule (opensshSetting "UsePAM" true);
+  "5.1.23" = sshRule (optionSatisfies {
     path = ["services" "openssh" "settings" "KexAlgorithms"];
     expected = "at least one ML-KEM or sntrup post-quantum hybrid key exchange";
     predicate = actual:
       builtins.isList actual
       && lib.any (algorithm: lib.hasPrefix "mlkem" algorithm || lib.hasPrefix "sntrup" algorithm) actual;
     remediation = "Include a supported ML-KEM or sntrup hybrid in services.openssh.settings.KexAlgorithms.";
-  };
+  });
 
   "5.2.1" = mkStatic {
     actual = sudoEnabled;
