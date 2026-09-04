@@ -22,10 +22,10 @@ in {
         }
       else helpers.notApplicable "chrony is not the selected time synchronization daemon.";
     "6.1.1.1.4" = optionEquals {
-      path = ["services" "journald" "forwardToSyslog"];
+      path = ["services" "journald" "settings" "Journal" "ForwardToSyslog"];
       expected = false;
       applicability = "adapted";
-      remediation = "Set services.journald.forwardToSyslog = false for the journal-only logging path.";
+      remediation = "Set services.journald.settings.Journal.ForwardToSyslog = false for the journal-only logging path.";
     };
     "6.1.1.2.1" = optionEquals {
       path = ["services" "journald" "upload" "enable"];

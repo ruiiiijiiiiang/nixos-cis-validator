@@ -22,9 +22,9 @@ in {
     applicability = "adapted";
   };
   "6.1.1.1.3" = optionEquals {
-    path = ["services" "journald" "forwardToSyslog"];
+    path = ["services" "journald" "settings" "Journal" "ForwardToSyslog"];
     expected = true;
-    remediation = "Set services.journald.forwardToSyslog = true when using the benchmark's rsyslog logging path.";
+    remediation = "Set services.journald.settings.Journal.ForwardToSyslog = true when using the benchmark's rsyslog logging path.";
     applicability = "adapted";
   };
   "6.1.1.1.6" = optionSatisfies {

@@ -75,10 +75,10 @@ in {
       remediation = "Set services.journald.upload.enable = true.";
     };
     "6.2.2.2" = optionEquals {
-      path = ["services" "journald" "forwardToSyslog"];
+      path = ["services" "journald" "settings" "Journal" "ForwardToSyslog"];
       expected = false;
       applicability = "adapted";
-      remediation = "Set services.journald.forwardToSyslog = false for the journal-only logging path.";
+      remediation = "Set services.journald.settings.Journal.ForwardToSyslog = false for the journal-only logging path.";
     };
   };
 
