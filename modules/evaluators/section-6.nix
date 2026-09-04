@@ -28,22 +28,24 @@ in {
     applicability = "adapted";
   };
   "6.1.1.1.6" = optionSatisfies {
-    path = ["services" "journald" "storage"];
+    path = ["services" "journald" "settings" "Journal" "Storage"];
     expected = "persistent";
     predicate = actual: actual == "persistent";
-    remediation = "Set services.journald.storage = \"persistent\".";
+    remediation = "Set services.journald.settings.Journal.Storage = \"persistent\".";
     applicability = "adapted";
   };
-  "6.1.1.1.7" = mkStatic {
-    actual = config.services.journald.extraConfig;
+  "6.1.1.1.7" = optionSatisfies {
+    path = ["services" "journald" "settings" "Journal" "Compress"];
     expected = "Compress=yes, or the secure systemd default";
-    option = "services.journald.extraConfig";
-    passed =
-      !lib.hasInfix "Compress=no" config.services.journald.extraConfig
-      && !lib.hasInfix "Compress=false" config.services.journald.extraConfig;
+    predicate = actual:
+      actual
+      == null
+      || actual == true
+      || actual == 1
+      || (builtins.isString actual && lib.elem (lib.toLower actual) ["yes" "true" "on" "1"]);
     applicability = "adapted";
     description = "The evaluated journald configuration must not disable journal compression.";
-    remediation = "Remove Compress=no or set Compress=yes in services.journald.extraConfig.";
+    remediation = "Remove an explicit false value or set services.journald.settings.Journal.Compress = true.";
   };
 
   "6.1.2.1" = optionEquals {
