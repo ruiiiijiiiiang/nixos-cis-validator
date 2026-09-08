@@ -18,13 +18,11 @@
     checks = import ./checks {inherit nixpkgs supportedSystems;};
 
     devShells = forAllSystems (
-      system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-      in
-      {
+      system: let
+        pkgs = import nixpkgs {inherit system;};
+      in {
         default = pkgs.mkShell {
-          packages = [ pkgs.nixfmt ];
+          packages = [pkgs.nixfmt];
         };
       }
     );

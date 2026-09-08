@@ -1,3 +1,17 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json"
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "nix": {
+    "enabled": true
+  },
+  "dependencyDashboard": true,
+  "packageRules": [
+    {
+      "description": "Continuously test nixpkgs updates",
+      "matchManagers": ["nix"],
+      "matchDepNames": ["nixpkgs"],
+      "dependencyDashboardApproval": false,
+      "automerge": false
+    }
+  ]
 }
