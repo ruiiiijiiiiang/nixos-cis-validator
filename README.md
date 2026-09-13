@@ -97,7 +97,22 @@ security.cisValidator = {
 ```
 
 The inverse policy is also supported: use global report mode and set selected
-serious recommendations to `failureMode = "error"`. Configured rule IDs are
+serious recommendations to `failureMode = "error"`.
+
+Overrides can also target recommendation groups. Broader groups are applied
+first, and more specific groups or individual recommendations override only the
+fields they set:
+
+```nix
+security.cisValidator.rules = {
+  "1".enable = false;
+  "1.1".failureMode = "report";
+  "1.1.1.1".enable = true;
+};
+```
+
+Here, all section 1 recommendations are disabled, section 1.1 uses report mode,
+and recommendation 1.1.1.1 is re-enabled. Configured rule and group IDs are
 validated against the selected profile to prevent silent typos.
 
 All catalog recommendations are enabled by default. They can be disabled by

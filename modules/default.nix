@@ -16,7 +16,20 @@
     profile = selectedProfile;
   };
 
-  ruleConfig = cisId: cfg.rules.${cisId} or {};
+  configuredRuleIds = builtins.attrNames cfg.rules;
+  rulePrefixes = cisId: let
+    components = lib.splitString "." cisId;
+  in
+    lib.genList
+    (index: lib.concatStringsSep "." (lib.take (index + 1) components))
+    (builtins.length components);
+  ruleConfig = cisId:
+    lib.foldl'
+    lib.recursiveUpdate
+    {}
+    (map
+      (prefix: lib.filterAttrs (_: value: value != null) cfg.rules.${prefix})
+      (builtins.filter (prefix: builtins.hasAttr prefix cfg.rules) (rulePrefixes cisId)));
 
   classify = entry:
     evaluator.mappings.${
@@ -106,7 +119,13 @@
   warningViolations = builtins.filter (rule: rule.enforcement.effective == "warn") violations;
   blockingViolations = builtins.filter (rule: rule.enforcement.effective == "error") violations;
   catalogRuleIds = map (entry: entry.cisId) selectedProfile.catalog;
-  unknownRuleIds = builtins.filter (cisId: !builtins.elem cisId catalogRuleIds) (builtins.attrNames cfg.rules);
+  unknownRuleIds =
+    builtins.filter
+    (configuredId:
+      !lib.any
+      (catalogId: configuredId == catalogId || lib.hasPrefix "${configuredId}." catalogId)
+      catalogRuleIds)
+    configuredRuleIds;
   countStatus = status: builtins.length (builtins.filter (rule: rule.status == status) allRules);
   publicRules = map (rule: builtins.removeAttrs rule ["passed"]) allRules;
 
@@ -167,30 +186,30 @@ in {
 
     rules = mkOption {
       default = {};
-      description = "Per-recommendation configuration keyed by CIS recommendation number.";
+      description = "Per-recommendation or recommendation-group configuration keyed by a full or partial CIS recommendation number.";
       type = types.attrsOf (types.submodule {
         options = {
           enable = mkOption {
-            type = types.bool;
-            default = true;
-            description = "Whether to include this recommendation in validation.";
+            type = types.nullOr types.bool;
+            default = null;
+            description = "Whether to include matching recommendations in validation. Null inherits from a broader group or defaultRuleEnable.";
           };
 
           failureMode = mkOption {
-            type = types.enum [
+            type = types.nullOr (types.enum [
               "inherit"
               "report"
               "warn"
               "error"
-            ];
-            default = "inherit";
-            description = "How this recommendation affects evaluation, or inherit to use the global failure mode.";
+            ]);
+            default = null;
+            description = "How matching recommendations affect evaluation. Null inherits from a broader group, while inherit selects the global failure mode.";
           };
 
           justification = mkOption {
             type = types.nullOr types.str;
             default = null;
-            description = "Optional site-policy justification recorded with this recommendation.";
+            description = "Optional site-policy justification recorded with matching recommendations. Null inherits from a broader group.";
           };
         };
       });

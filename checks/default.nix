@@ -86,6 +86,29 @@ nixpkgs.lib.genAttrs supportedSystems (
       rules."999.999".failureMode = "error";
     };
 
+    invalidGroup = mkSystem {
+      enable = true;
+      failureMode = "report";
+      rules."1.999".enable = false;
+    };
+
+    groupedRules = mkSystem {
+      enable = true;
+      failureMode = "report";
+      rules = {
+        "1" = {
+          enable = false;
+          failureMode = "warn";
+          justification = "Section 1 site policy.";
+        };
+        "1.1".enable = true;
+        "1.1.1.1" = {
+          enable = false;
+          failureMode = "error";
+        };
+      };
+    };
+
     openSshDisabled = mkSystem {
       enable = true;
       failureMode = "warn";
@@ -111,6 +134,7 @@ nixpkgs.lib.genAttrs supportedSystems (
     acceptedExceptionEvaluation = builtins.tryEval acceptedException.config.system.build.toplevel.drvPath;
     selectiveBlockingEvaluation = builtins.tryEval selectiveBlocking.config.system.build.toplevel.drvPath;
     invalidRuleEvaluation = builtins.tryEval invalidRule.config.system.build.toplevel.drvPath;
+    invalidGroupEvaluation = builtins.tryEval invalidGroup.config.system.build.toplevel.drvPath;
   in {
     compliant =
       pkgs.runCommand "cis-validator-compliant-check" {
@@ -229,6 +253,37 @@ nixpkgs.lib.genAttrs supportedSystems (
 
     invalid-rule = assert !invalidRuleEvaluation.success;
       pkgs.runCommand "cis-validator-invalid-rule-check" {} ''
+        touch "$out"
+      '';
+
+    invalid-group = assert !invalidGroupEvaluation.success;
+      pkgs.runCommand "cis-validator-invalid-group-check" {} ''
+        touch "$out"
+      '';
+
+    grouped-rules =
+      pkgs.runCommand "cis-validator-grouped-rules-check" {
+        nativeBuildInputs = [pkgs.jq];
+        report = groupedRules.config.system.build.cisValidationReport;
+      } ''
+        jq -e '
+          (.rules | map(select(.source.recommendation == "1.1.1.1"))[0] |
+            .enabled == false and
+            .enforcement.configured == "error" and
+            .enforcement.justification == "Section 1 site policy.") and
+          (.rules | map(select(.source.recommendation == "1.1.1.2"))[0] |
+            .enabled == true and
+            .enforcement.configured == "warn" and
+            .enforcement.justification == "Section 1 site policy.") and
+          (.rules | map(select(.source.recommendation == "1.2.1.1"))[0] |
+            .enabled == false and
+            .enforcement.configured == "warn" and
+            .enforcement.justification == "Section 1 site policy.") and
+          (.rules | map(select(.source.recommendation == "2.1.1"))[0] |
+            .enabled == true and
+            .enforcement.configured == "inherit" and
+            .enforcement.justification == null)
+        ' "$report" >/dev/null
         touch "$out"
       '';
 
